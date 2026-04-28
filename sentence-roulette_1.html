@@ -1,0 +1,971 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sentence Roulette</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f4ede1;
+    --ink: #1a1612;
+    --muted: #7a6f60;
+    --paper: #faf6ec;
+    --line: rgba(26,22,18,0.1);
+    --accent: #c1432e;
+  }
+
+  body[data-cat="cause"]      { --accent: #c1432e; }
+  body[data-cat="links"]      { --accent: #1f6f6a; }
+  body[data-cat="sequence"]   { --accent: #3a3a8e; }
+  body[data-cat="comparison"] { --accent: #2f6b3c; }
+  body[data-cat="category"]   { --accent: #6b3a6e; }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+
+  body {
+    font-family: 'Nunito', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    min-height: 100vh;
+    padding: 3rem 1.5rem 2rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background-image:
+      radial-gradient(circle at 18% 12%, color-mix(in srgb, var(--accent) 8%, transparent), transparent 45%),
+      radial-gradient(circle at 82% 88%, color-mix(in srgb, var(--accent) 6%, transparent), transparent 45%);
+    transition: background-image 0.8s ease;
+  }
+
+  .header { text-align: center; margin-bottom: 2.5rem; }
+
+  .eyebrow {
+    font-size: 0.7rem;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 0.75rem;
+  }
+
+  h1 {
+    font-family: 'Nunito', sans-serif;
+    font-weight: 800;
+    font-size: clamp(2.4rem, 6vw, 4rem);
+    line-height: 1;
+    letter-spacing: -0.02em;
+  }
+  h1 em { font-style: normal; color: var(--accent); transition: color 0.6s ease; }
+
+  .container { width: 100%; max-width: 720px; }
+
+  .section-label {
+    font-size: 0.68rem;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 0.75rem;
+  }
+  .section-label.inline { margin: 0; }
+
+  /* Categories */
+  .categories {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 0.4rem;
+    margin-bottom: 2rem;
+  }
+  .cat-btn {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    padding: 0.9rem 0.6rem;
+    font-family: inherit;
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--ink);
+    cursor: pointer;
+    transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
+    text-align: center;
+  }
+  .cat-btn:hover { transform: translateY(-2px); border-color: var(--accent); }
+  .cat-btn.active { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+
+  /* Stage */
+  .stage {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    padding: 4rem 1.5rem;
+    margin-bottom: 1rem;
+    min-height: 320px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .stage::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at center, var(--accent), transparent 65%);
+    opacity: 0;
+    transition: opacity 0.7s ease;
+    pointer-events: none;
+  }
+  .stage.glow::before { opacity: 0.10; }
+
+  .stage-label {
+    position: absolute;
+    top: 1.1rem; left: 1.25rem;
+    font-size: 0.65rem;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .stage-num {
+    position: absolute;
+    top: 1.1rem; right: 1.25rem;
+    font-family: 'Nunito', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--muted);
+  }
+
+  /* Word */
+  .word-display {
+    font-family: 'Nunito', sans-serif;
+    font-weight: 600;
+    font-size: clamp(2rem, 7vw, 3.8rem);
+    line-height: 1.15;
+    text-align: center;
+    color: var(--ink);
+    letter-spacing: -0.01em;
+    word-break: break-word;
+    transition: color 0.3s ease;
+  }
+  .word-display.placeholder {
+    font-weight: 500;
+    color: var(--muted);
+    font-size: 1rem;
+    letter-spacing: 0.08em;
+    text-transform: lowercase;
+  }
+  .word-display.spinning { animation: blur-pulse 0.4s ease infinite alternate; }
+  .word-display.landed { color: var(--accent); }
+  .word-display.landed.bounce { animation: land 0.55s cubic-bezier(0.34, 1.56, 0.64, 1); }
+
+  @keyframes land {
+    0%   { transform: scale(0.92) translateY(6px); opacity: 0; }
+    60%  { transform: scale(1.04); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  @keyframes blur-pulse { from { opacity: 0.85; } to { opacity: 1; } }
+
+  /* Typewriter caret */
+  .word-display.typing::after {
+    content: '';
+    display: inline-block;
+    width: 0.07em;
+    height: 0.85em;
+    background: var(--accent);
+    margin-left: 0.08em;
+    vertical-align: text-bottom;
+    animation: blink 0.7s steps(1) infinite;
+  }
+  @keyframes blink {
+    0%, 49.99%   { opacity: 1; }
+    50%, 100%    { opacity: 0; }
+  }
+
+  /* Decode chars */
+  .word-display.decoding .decode-char {
+    color: var(--muted);
+    opacity: 0.55;
+    transition: color 0.2s ease, opacity 0.2s ease;
+  }
+  .word-display.decoding .decode-char.settled {
+    color: var(--accent);
+    opacity: 1;
+  }
+
+  /* Sift */
+  .sift-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 0.5rem;
+    justify-content: center;
+    align-items: center;
+    max-width: 100%;
+  }
+  .sift-chip {
+    font-family: 'Nunito', sans-serif;
+    font-weight: 500;
+    font-size: 1.05rem;
+    padding: 0.4rem 0.75rem;
+    border: 1px solid var(--line);
+    background: transparent;
+    color: var(--ink);
+    transition: opacity 0.4s ease, color 0.4s ease, transform 0.5s ease, border-color 0.4s ease, font-size 0.5s ease;
+    animation: chip-in 0.3s ease;
+    white-space: nowrap;
+  }
+  .sift-chip.eliminated { opacity: 0.18; text-decoration: line-through; }
+  .sift-chip.chosen {
+    color: var(--accent);
+    border-color: var(--accent);
+    font-size: 1.5rem;
+    font-weight: 600;
+    transform: scale(1.05);
+  }
+  @keyframes chip-in {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Animation chooser */
+  .anim-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+  }
+  .anim-buttons { display: flex; gap: 0.3rem; flex-wrap: wrap; }
+  .anim-btn {
+    background: transparent;
+    border: 1px solid var(--line);
+    padding: 0.4rem 0.75rem;
+    font-family: inherit;
+    font-size: 0.75rem;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  .anim-btn:hover { color: var(--ink); border-color: var(--accent); }
+  .anim-btn.active { color: var(--paper); background: var(--ink); border-color: var(--ink); }
+
+  /* Roll */
+  .roll-btn {
+    width: 100%;
+    padding: 1.2rem;
+    background: var(--ink);
+    color: var(--paper);
+    border: none;
+    font-family: inherit;
+    font-size: 0.85rem;
+    font-weight: 500;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 0.3s ease, transform 0.1s ease;
+    margin-bottom: 0.5rem;
+  }
+  .roll-btn:hover:not(:disabled) { background: var(--accent); }
+  .roll-btn:active:not(:disabled) { transform: scale(0.99); }
+  .roll-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .roll-btn .hint {
+    display: inline-block;
+    margin-left: 0.6rem;
+    opacity: 0.55;
+    font-size: 0.7rem;
+    letter-spacing: 0.2em;
+  }
+
+  /* Picker */
+  .picker { margin-bottom: 2rem; }
+  .picker-toggle {
+    background: transparent;
+    border: none;
+    font-family: inherit;
+    font-size: 0.78rem;
+    color: var(--muted);
+    cursor: pointer;
+    letter-spacing: 0.04em;
+    padding: 0.5rem 0;
+    transition: color 0.2s ease;
+  }
+  .picker-toggle:hover, .picker-toggle.open { color: var(--ink); }
+  .picker-toggle .arrow {
+    display: inline-block;
+    transition: transform 0.25s ease;
+    margin-left: 0.25rem;
+  }
+  .picker-toggle.open .arrow { transform: rotate(180deg); }
+
+  .picker-list {
+    margin-top: 0.75rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    padding: 0.85rem;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    animation: slide-in 0.3s ease;
+  }
+  .picker-chip {
+    font-family: 'Nunito', sans-serif;
+    font-weight: 500;
+    font-size: 0.95rem;
+    padding: 0.4rem 0.8rem;
+    background: transparent;
+    border: 1px solid var(--line);
+    color: var(--ink);
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  .picker-chip:hover {
+    background: var(--ink); color: var(--paper); border-color: var(--ink);
+  }
+
+  /* History */
+  .history-list {
+    display: flex; flex-wrap: wrap; gap: 0.4rem; min-height: 2.4rem;
+  }
+  .history-item {
+    font-family: 'Nunito', sans-serif;
+    font-weight: 500;
+    font-size: 0.95rem;
+    padding: 0.4rem 0.8rem;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    color: var(--muted);
+    animation: slide-in 0.35s ease;
+  }
+  .history-item.fresh {
+    color: var(--accent);
+    border-color: color-mix(in srgb, var(--accent) 30%, var(--line));
+  }
+  .history-empty { font-size: 0.85rem; color: var(--muted); }
+
+  @keyframes slide-in {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .footer {
+    margin-top: 3rem;
+    font-size: 0.7rem;
+    color: var(--muted);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+  }
+
+  /* Help button & modal */
+  .help-btn {
+    position: fixed;
+    top: 1.25rem;
+    right: 1.25rem;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    padding: 0.55rem 0.9rem;
+    font-family: inherit;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    z-index: 50;
+  }
+  .help-btn:hover { color: var(--ink); border-color: var(--ink); }
+
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(26, 22, 18, 0.45);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    z-index: 100;
+    animation: fade-in 0.2s ease;
+  }
+  .modal-backdrop[hidden] { display: none; }
+
+  .modal {
+    background: var(--paper);
+    max-width: 560px;
+    width: 100%;
+    max-height: 85vh;
+    overflow-y: auto;
+    padding: 2.25rem 2rem 1.75rem;
+    border: 1px solid var(--line);
+    position: relative;
+    animation: modal-in 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .modal-close {
+    position: absolute;
+    top: 0.85rem;
+    right: 0.85rem;
+    width: 2rem;
+    height: 2rem;
+    background: transparent;
+    border: 1px solid var(--line);
+    font-family: inherit;
+    font-size: 1.1rem;
+    line-height: 1;
+    color: var(--muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+  }
+  .modal-close:hover { border-color: var(--ink); color: var(--ink); }
+
+  .modal h2 {
+    font-family: 'Nunito', sans-serif;
+    font-weight: 800;
+    font-size: 1.5rem;
+    line-height: 1.2;
+    margin-bottom: 0.4rem;
+    letter-spacing: -0.01em;
+    padding-right: 2rem;
+  }
+  .modal-intro {
+    color: var(--muted);
+    font-size: 0.9rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .modal h3 {
+    font-family: 'Nunito', sans-serif;
+    font-weight: 700;
+    font-size: 1rem;
+    margin-top: 1.4rem;
+    margin-bottom: 0.5rem;
+    color: var(--accent);
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+  }
+  .modal h3 .num {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    min-width: 0.9rem;
+  }
+
+  .modal p {
+    font-size: 0.92rem;
+    line-height: 1.55;
+    margin-bottom: 0.75rem;
+    color: var(--ink);
+  }
+  .modal p em { font-style: italic; color: var(--accent); }
+
+  .modal ul {
+    list-style: none;
+    padding-left: 0;
+    margin-bottom: 0.75rem;
+  }
+  .modal ul li {
+    font-size: 0.92rem;
+    line-height: 1.5;
+    padding-left: 1.1rem;
+    position: relative;
+    margin-bottom: 0.35rem;
+    color: var(--ink);
+  }
+  .modal ul li::before {
+    content: '→';
+    position: absolute;
+    left: 0;
+    color: var(--accent);
+    font-weight: 700;
+  }
+
+  .modal-credit {
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--line);
+    font-size: 0.75rem;
+    color: var(--muted);
+    line-height: 1.55;
+  }
+  .modal-credit a {
+    color: var(--ink);
+    text-decoration: underline;
+    text-decoration-color: var(--line);
+    text-underline-offset: 2px;
+    transition: color 0.2s ease, text-decoration-color 0.2s ease;
+  }
+  .modal-credit a:hover {
+    color: var(--accent);
+    text-decoration-color: var(--accent);
+  }
+
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+  @keyframes modal-in {
+    from { opacity: 0; transform: translateY(10px) scale(0.98); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  @media (max-width: 480px) {
+    body { padding: 2rem 1rem; }
+    .stage { padding: 3rem 1rem; min-height: 260px; }
+    .roll-btn .hint { display: none; }
+    .anim-row { gap: 0.5rem; }
+    .help-btn {
+      top: 0.75rem;
+      right: 0.75rem;
+      padding: 0.45rem 0.7rem;
+      font-size: 0.62rem;
+      letter-spacing: 0.14em;
+    }
+    .modal { padding: 1.75rem 1.25rem 1.25rem; }
+    .modal h2 { font-size: 1.3rem; }
+  }
+</style>
+</head>
+<body data-cat="cause">
+  <button class="help-btn" id="helpBtn" aria-label="How to use this tool">How to use</button>
+
+  <div class="modal-backdrop" id="modalBackdrop" role="dialog" aria-modal="true" aria-labelledby="modalTitle" hidden>
+    <div class="modal" role="document">
+      <button class="modal-close" id="modalClose" aria-label="Close">×</button>
+      <h2 id="modalTitle">How to use this in lessons</h2>
+      <p class="modal-intro">Three classroom workflows that pair well with this tool.</p>
+
+      <h3><span class="num">1</span>When first teaching new content</h3>
+      <p>After explicitly teaching a piece of declarative knowledge — with a clear explanation and a supporting graphic — set students a sentence-writing task using a specific conjunction from the wheel.</p>
+      <ul>
+        <li>For an unfamiliar conjunction, model an example sentence first.</li>
+        <li>For a familiar one, build in retrieval practice with a Turn and Talk before students write.</li>
+        <li>Then write an accurate model sentence on the board for students to follow.</li>
+      </ul>
+
+      <h3><span class="num">2</span>As DIRT activities</h3>
+      <p>DIRT = Dedicated Improvement and Reflection Time. A powerful "Act Now and Always" target is <em>Use sophisticated sentences to express relationships</em>. When marking, highlight the section of work to improve and write the conjunction the student should use. They rewrite in purple pen. Showcase strong examples on the visualiser to reinforce the habit.</p>
+
+      <h3><span class="num">3</span>Live feedback while students write</h3>
+      <p>Circulate during the task — correct errors individually, or model common ones to the whole class. When marking books, star errors and note student names, then address them next lesson (whole-class, small group, or 1:1) and plan follow-up verbal questions to consolidate understanding.</p>
+
+      <div class="modal-credit">
+        Inspired by <a href="https://rosalindwalker.wordpress.com/2018/10/17/sentences-and-the-web-of-knowledge/" target="_blank" rel="noopener">"Sentences and the web of knowledge"</a> by Rosalind Walker. The conjunction lists, classroom approaches, and pedagogical thinking behind this tool are all hers — this is simply an interactive way to use them in the classroom. Read her blog for the full rationale and further reading on whole-class feedback and DIRT in science.
+      </div>
+    </div>
+  </div>
+
+  <header class="header">
+    <div class="eyebrow">Sentence Roulette</div>
+    <h1>Roll a <em>conjunction</em></h1>
+  </header>
+
+  <main class="container">
+    <div class="section-label">Category</div>
+    <nav class="categories" id="categories" aria-label="Conjunction category"></nav>
+
+    <div class="stage" id="stage" role="status" aria-live="polite">
+      <div class="stage-label" id="stageLabel">Cause &amp; Effect</div>
+      <div class="stage-num" id="stageNum">10 options</div>
+      <div class="word-display placeholder" id="word">press roll to begin</div>
+    </div>
+
+    <div class="anim-row">
+      <span class="section-label inline">Style</span>
+      <div class="anim-buttons" id="animButtons"></div>
+    </div>
+
+    <button class="roll-btn" id="rollBtn">Roll<span class="hint">space</span></button>
+
+    <div class="picker">
+      <button class="picker-toggle" id="pickerToggle" aria-expanded="false">
+        Or pick from list <span class="arrow">↓</span>
+      </button>
+      <div class="picker-list" id="pickerList" hidden></div>
+    </div>
+
+    <div class="section-label">Recent rolls</div>
+    <div class="history-list" id="history">
+      <span class="history-empty">none yet</span>
+    </div>
+  </main>
+
+  <footer class="footer">Joshua Stafford-Haworth</footer>
+
+<script>
+  const categories = {
+    cause: {
+      label: 'Cause & Effect',
+      words: ['because','due to','since','resulting in','causing','caused by','therefore','thus','allows','if… then']
+    },
+    links: {
+      label: 'Making Links',
+      words: ['is demonstrated by','has the effect of','manifests itself in','is a manifestation of','as a corollary','can be explained by','can be attributed to','has its explanation in','is related to','shares its explanation with']
+    },
+    sequence: {
+      label: 'Sequence in Time',
+      words: ['initially','subsequently','penultimately','finally','ultimately','prior to','following','having']
+    },
+    comparison: {
+      label: 'Comparison',
+      words: ['similarly','contrastingly','whereas','conversely','while','however']
+    },
+    category: {
+      label: 'Categorization',
+      words: ['included in','inclusive of','excluded from','exclusive of','of which','an example of which','a sub-set of','comprises']
+    }
+  };
+
+  const animationList = [
+    { key: 'roulette',   label: 'Roulette' },
+    { key: 'typewriter', label: 'Typewriter' },
+    { key: 'decode',     label: 'Decode' },
+    { key: 'sift',       label: 'Sift' }
+  ];
+
+  let currentCat = 'cause';
+  let currentAnim = 'roulette';
+  let rolling = false;
+  let history = [];
+
+  const catContainer  = document.getElementById('categories');
+  const animContainer = document.getElementById('animButtons');
+  const wordEl        = document.getElementById('word');
+  const stageLabel    = document.getElementById('stageLabel');
+  const stageNum      = document.getElementById('stageNum');
+  const rollBtn       = document.getElementById('rollBtn');
+  const historyEl     = document.getElementById('history');
+  const stage         = document.getElementById('stage');
+  const pickerToggle  = document.getElementById('pickerToggle');
+  const pickerList    = document.getElementById('pickerList');
+
+  // Build category buttons
+  Object.entries(categories).forEach(([key, val]) => {
+    const btn = document.createElement('button');
+    btn.className = 'cat-btn' + (key === currentCat ? ' active' : '');
+    btn.textContent = val.label;
+    btn.dataset.key = key;
+    btn.addEventListener('click', () => selectCategory(key));
+    catContainer.appendChild(btn);
+  });
+
+  // Build animation buttons
+  animationList.forEach(a => {
+    const btn = document.createElement('button');
+    btn.className = 'anim-btn' + (a.key === currentAnim ? ' active' : '');
+    btn.textContent = a.label;
+    btn.dataset.anim = a.key;
+    btn.addEventListener('click', () => selectAnim(a.key));
+    animContainer.appendChild(btn);
+  });
+
+  updateStageMeta();
+  buildPickerList();
+
+  function selectCategory(key) {
+    if (rolling) return;
+    currentCat = key;
+    document.body.dataset.cat = key;
+    document.querySelectorAll('.cat-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.key === key);
+    });
+    updateStageMeta();
+    resetWord();
+    wordEl.classList.add('placeholder');
+    wordEl.textContent = 'press roll to begin';
+    buildPickerList();
+  }
+
+  function selectAnim(key) {
+    if (rolling) return;
+    currentAnim = key;
+    document.querySelectorAll('.anim-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.anim === key);
+    });
+  }
+
+  function updateStageMeta() {
+    const c = categories[currentCat];
+    stageLabel.textContent = c.label;
+    stageNum.textContent = c.words.length + ' options';
+  }
+
+  function buildPickerList() {
+    pickerList.innerHTML = '';
+    categories[currentCat].words.forEach(w => {
+      const chip = document.createElement('button');
+      chip.className = 'picker-chip';
+      chip.textContent = w;
+      chip.addEventListener('click', () => selectFromList(w));
+      pickerList.appendChild(chip);
+    });
+  }
+
+  pickerToggle.addEventListener('click', () => {
+    const opening = pickerList.hasAttribute('hidden');
+    if (opening) {
+      pickerList.removeAttribute('hidden');
+      pickerToggle.classList.add('open');
+      pickerToggle.setAttribute('aria-expanded', 'true');
+    } else {
+      pickerList.setAttribute('hidden', '');
+      pickerToggle.classList.remove('open');
+      pickerToggle.setAttribute('aria-expanded', 'false');
+    }
+  });
+
+  function resetWord() {
+    wordEl.innerHTML = '';
+    wordEl.classList.remove('placeholder', 'landed', 'bounce', 'spinning', 'typing', 'decoding');
+    wordEl.style.display = '';
+    const stray = stage.querySelector('.sift-container');
+    if (stray) stray.remove();
+  }
+
+  function selectFromList(word) {
+    if (rolling) return;
+    resetWord();
+    void wordEl.offsetWidth;
+    wordEl.textContent = word;
+    wordEl.classList.add('landed', 'bounce');
+    stage.classList.add('glow');
+    setTimeout(() => stage.classList.remove('glow'), 900);
+    addToHistory(word);
+  }
+
+  function roll() {
+    if (rolling) return;
+    rolling = true;
+    rollBtn.disabled = true;
+    resetWord();
+
+    const words = categories[currentCat].words;
+    const finalWord = words[Math.floor(Math.random() * words.length)];
+
+    animations[currentAnim](words, finalWord, (settleType) => {
+      if (settleType === 'bounce') wordEl.classList.add('bounce');
+      wordEl.classList.add('landed');
+      stage.classList.add('glow');
+      setTimeout(() => stage.classList.remove('glow'), 900);
+      addToHistory(finalWord);
+      rolling = false;
+      rollBtn.disabled = false;
+    });
+  }
+
+  /* ---------- Animations ---------- */
+
+  // 1. Roulette: rapid cycle that decelerates onto the result
+  function animRoulette(words, finalWord, done) {
+    wordEl.classList.add('spinning');
+    const totalDuration = 1800;
+    let elapsed = 0;
+    let interval = 55;
+    let lastIdx = -1;
+
+    const tick = () => {
+      let idx;
+      do { idx = Math.floor(Math.random() * words.length); }
+      while (idx === lastIdx && words.length > 1);
+      lastIdx = idx;
+      wordEl.textContent = words[idx];
+
+      elapsed += interval;
+      const progress = Math.min(elapsed / totalDuration, 1);
+      interval = 55 + Math.pow(progress, 2.6) * 380;
+
+      if (elapsed < totalDuration) {
+        setTimeout(tick, interval);
+      } else {
+        wordEl.classList.remove('spinning');
+        wordEl.textContent = finalWord;
+        done('bounce');
+      }
+    };
+    tick();
+  }
+
+  // 2. Typewriter: letter-by-letter reveal with a blinking caret
+  function animTypewriter(words, finalWord, done) {
+    wordEl.classList.add('typing');
+    wordEl.textContent = '';
+    let i = 0;
+
+    const tick = () => {
+      if (i <= finalWord.length) {
+        wordEl.textContent = finalWord.slice(0, i);
+        i++;
+        setTimeout(tick, 55 + Math.random() * 60);
+      } else {
+        setTimeout(() => {
+          wordEl.classList.remove('typing');
+          done('soft');
+        }, 350);
+      }
+    };
+    setTimeout(tick, 250);
+  }
+
+  // 3. Decode: each letter cycles through random characters then locks in,
+  //    staggered left-to-right
+  function animDecode(words, finalWord, done) {
+    const glyphs = 'abcdefghijklmnopqrstuvwxyz';
+    const targets = finalWord.split('');
+    const isLetter = (ch) => /[a-zA-Z]/.test(ch);
+
+    const settleAt = targets.map((ch, i) => {
+      if (!isLetter(ch)) return 0;
+      return 250 + (i / Math.max(targets.length - 1, 1)) * 1200 + Math.random() * 200;
+    });
+
+    wordEl.classList.add('decoding');
+    wordEl.innerHTML = '';
+    const spans = targets.map(ch => {
+      const s = document.createElement('span');
+      if (isLetter(ch)) {
+        s.className = 'decode-char';
+        s.textContent = '·';
+      } else {
+        s.textContent = ch;
+      }
+      wordEl.appendChild(s);
+      return s;
+    });
+
+    const start = performance.now();
+    const tick = () => {
+      const t = performance.now() - start;
+      let allSettled = true;
+      targets.forEach((ch, i) => {
+        if (!isLetter(ch)) return;
+        if (spans[i].classList.contains('settled')) return;
+        if (t >= settleAt[i]) {
+          spans[i].textContent = ch;
+          spans[i].classList.add('settled');
+        } else {
+          allSettled = false;
+          const isUpper = ch === ch.toUpperCase() && /[A-Z]/.test(ch);
+          const r = glyphs[Math.floor(Math.random() * glyphs.length)];
+          spans[i].textContent = isUpper ? r.toUpperCase() : r;
+        }
+      });
+      if (allSettled) {
+        setTimeout(() => {
+          wordEl.classList.remove('decoding');
+          wordEl.innerHTML = '';
+          wordEl.textContent = finalWord;
+          done('soft');
+        }, 250);
+      } else {
+        setTimeout(tick, 55);
+      }
+    };
+    tick();
+  }
+
+  // 4. Sift: show all options, eliminate non-chosen one by one
+  function animSift(words, finalWord, done) {
+    wordEl.style.display = 'none';
+
+    const container = document.createElement('div');
+    container.className = 'sift-container';
+    stage.appendChild(container);
+
+    const chips = words.map((w, i) => {
+      const chip = document.createElement('span');
+      chip.className = 'sift-chip';
+      chip.textContent = w;
+      chip.style.animationDelay = (i * 35) + 'ms';
+      container.appendChild(chip);
+      return chip;
+    });
+
+    const chosenIdx = words.indexOf(finalWord);
+    const toEliminate = words.map((_, i) => i).filter(i => i !== chosenIdx);
+    for (let i = toEliminate.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [toEliminate[i], toEliminate[j]] = [toEliminate[j], toEliminate[i]];
+    }
+
+    let step = 0;
+    const initialDelay = 450 + words.length * 35;
+    const eliminate = () => {
+      if (step < toEliminate.length) {
+        chips[toEliminate[step]].classList.add('eliminated');
+        step++;
+        setTimeout(eliminate, 110);
+      } else {
+        chips[chosenIdx].classList.add('chosen');
+        setTimeout(() => {
+          container.remove();
+          wordEl.style.display = '';
+          wordEl.textContent = finalWord;
+          done('bounce');
+        }, 750);
+      }
+    };
+    setTimeout(eliminate, initialDelay);
+  }
+
+  const animations = {
+    roulette:   animRoulette,
+    typewriter: animTypewriter,
+    decode:     animDecode,
+    sift:       animSift
+  };
+
+  /* ---------- History ---------- */
+
+  function addToHistory(word) {
+    history.unshift(word);
+    if (history.length > 10) history.length = 10;
+    historyEl.innerHTML = '';
+    history.forEach((w, i) => {
+      const el = document.createElement('span');
+      el.className = 'history-item' + (i === 0 ? ' fresh' : '');
+      el.textContent = w;
+      historyEl.appendChild(el);
+    });
+  }
+
+  rollBtn.addEventListener('click', roll);
+
+  /* ---------- Help modal ---------- */
+  const helpBtn       = document.getElementById('helpBtn');
+  const modalBackdrop = document.getElementById('modalBackdrop');
+  const modalClose    = document.getElementById('modalClose');
+
+  function openModal() {
+    modalBackdrop.removeAttribute('hidden');
+    modalClose.focus();
+  }
+  function closeModal() {
+    modalBackdrop.setAttribute('hidden', '');
+    helpBtn.focus();
+  }
+  function isModalOpen() {
+    return !modalBackdrop.hasAttribute('hidden');
+  }
+
+  helpBtn.addEventListener('click', openModal);
+  modalClose.addEventListener('click', closeModal);
+  modalBackdrop.addEventListener('click', (e) => {
+    if (e.target === modalBackdrop) closeModal();
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    if (e.key === 'Escape' && isModalOpen()) { closeModal(); return; }
+    if (isModalOpen()) return; // suppress other shortcuts while modal open
+    if (e.code === 'Space') { e.preventDefault(); roll(); return; }
+    const catKeys = ['cause','links','sequence','comparison','category'];
+    const n = parseInt(e.key, 10);
+    if (n >= 1 && n <= 5) selectCategory(catKeys[n-1]);
+  });
+</script>
+</body>
+</html>
